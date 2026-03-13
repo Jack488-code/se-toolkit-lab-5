@@ -237,7 +237,13 @@ async def load_logs(
         student_id = log.get("student_id", "")
         student_group = log.get("group", "unknown")
         
-        learner = await session.get(Learner, Learner.external_id == student_id)
+        from sqlmodel import select
+        
+        # Find or create Learner
+        learner_query = select(Learner).where(Learner.external_id == student_id)
+        result = await session.exec(learner_query)
+        learner = result.first()
+        
         if not learner:
             learner = Learner(external_id=student_id, student_group=student_group)
             session.add(learner)
@@ -274,10 +280,11 @@ async def load_logs(
         
         # 3. Check if InteractionLog with this external_id already exists
         external_id = log.get("id")
-        existing_log = await session.get(
-            InteractionLog,
+        existing_log_query = select(InteractionLog).where(
             InteractionLog.external_id == external_id
         )
+        result = await session.exec(existing_log_query)
+        existing_log = result.first()
         
         if existing_log:
             continue  # Skip if already exists (idempotent upsert)
